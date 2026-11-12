@@ -96,6 +96,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
   <button id="walkBtn" type="button">Hold to walk</button>
   <button id="knockBtn" type="button">Knock</button>
   <button id="soundBtn" type="button" aria-pressed="true">Sound on</button>
+  <label class="mode" for="lightSel"><span class="sr-only">Main light</span><select id="lightSel"></select></label>
   <button id="resetBtn" type="button" hidden>Begin again</button>
 </div>
 <p id="toast" role="status" hidden></p>
@@ -629,6 +630,22 @@ scene.add(room);
 const BULB = new THREE.Vector3(0, DOOR_H + 0.62, -0.62);
 const idolTarget = new THREE.Vector3(0, 1.5, PLAT_Z - 0.15);
 const spot = new THREE.SpotLight(0xffd7a0, 1.7, 20, 0.38, 0.85, 1);
+// For testing: the main light's strength can be set from the page (10% to 100%), remembered on this device
+let LIGHT_K = 1;
+{
+  let raw = spot.intensity;
+  Object.defineProperty(spot, 'intensity', { get() { return raw * LIGHT_K; }, set(v) { raw = v; }, configurable: true });
+  const sel = document.getElementById('lightSel');
+  try { const v = parseInt(localStorage.getItem('mainLight'), 10); if (v >= 10 && v <= 100) LIGHT_K = v / 100; } catch (e) {}
+  for (let v = 100; v >= 10; v -= 10) {
+    const o = document.createElement('option'); o.value = v; o.textContent = 'Light ' + v + '%'; sel.appendChild(o);
+  }
+  sel.value = String(Math.round(LIGHT_K * 100));
+  sel.addEventListener('change', () => {
+    LIGHT_K = parseInt(sel.value, 10) / 100;
+    try { localStorage.setItem('mainLight', sel.value); } catch (e) {}
+  });
+}
 spot.position.copy(BULB);
 spot.target.position.copy(idolTarget);
 spot.castShadow = true;
