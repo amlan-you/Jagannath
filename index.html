@@ -96,7 +96,6 @@ button:disabled{opacity:.55;cursor:not-allowed}
   <button id="walkBtn" type="button">Hold to walk</button>
   <button id="knockBtn" type="button">Knock</button>
   <button id="soundBtn" type="button" aria-pressed="true">Sound on</button>
-  <label class="mode" for="modeSel"><span class="sr-only">Darshan mode</span><select id="modeSel"></select></label>
   <button id="resetBtn" type="button" hidden>Begin again</button>
 </div>
 <p id="toast" role="status" hidden></p>
@@ -1386,12 +1385,11 @@ function updateIncense(t, head) {
 }
 
 
-/* ---------- Darshan modes (add new ones to MODES; the dropdown fills itself from this list) ---------- */
+/* ---------- Darshan: the dressed (Dhoti) darshan only; the Sadha toggle was removed ---------- */
 const MODES = {
-  sadha: { label: 'Sadha', plinth: 0, wrap: false },
   dhoti: { label: 'Dhoti', plinth: 1.5 * FT, wrap: true },   // raised on a 1.5 ft rough rock; head, arms and plank wrapped in cloth
 };
-let currentMode = 'sadha';
+let currentMode = 'dhoti';
 let idolHolder = null;
 const wrapMeshes = [], chittaMeshes = [], bodyNetMeshes = [];
 
@@ -1467,12 +1465,8 @@ function fitPlinth() {                           // match the pillow's diameter 
   plinth.position.set(c.x, PLAT_H, c.z);
 }
 
-const modeSel = document.getElementById('modeSel');
-for (const [key, m] of Object.entries(MODES)) {
-  const o = document.createElement('option'); o.value = key; o.textContent = m.label; modeSel.appendChild(o);
-}
 function applyMode(name) {
-  if (!MODES[name]) name = 'sadha';
+  if (!MODES[name]) name = 'dhoti';
   currentMode = name;
   const h = MODES[name].plinth;
   plinth.visible = h > 0;
@@ -1489,11 +1483,7 @@ function applyMode(name) {
   spot.target.position.y = idolTarget.y + h * 0.7;
   spot.target.updateMatrixWorld();
   renderer.shadowMap.needsUpdate = true;
-  modeSel.value = name;
-  try { localStorage.setItem('darshanMode', name); } catch (e) {}
 }
-modeSel.addEventListener('change', () => applyMode(modeSel.value));
-try { const saved = localStorage.getItem('darshanMode'); if (saved && MODES[saved]) currentMode = saved; } catch (e) {}
 applyMode(currentMode);
 
 /* ---------- Headset lighting: fewer lights, cheaper stone and wall shading ---------- */
@@ -1705,6 +1695,10 @@ if (THREE.GLTFLoader) {
       if (/^(RopeCloth|BodyPink)/.test(nm)) bodyNetMeshes.push(o);
     });
     idolHolder = holder; fitPlinth(); applyMode(currentMode);
+    // the plain (Sadha) pieces are never shown now: the rope net, the bare body cloth and the plain chitta
+    [...bodyNetMeshes, ...chittaMeshes].forEach(o => { if (o.parent) o.parent.remove(o); o.geometry && o.geometry.dispose(); });
+    bodyNetMeshes.length = 0; chittaMeshes.length = 0;
+    renderer.shadowMap.needsUpdate = true;
     idol.visible = false;
     // upload textures and build shaders now, before anyone enters VR, so the headset never stalls on them
     try {
