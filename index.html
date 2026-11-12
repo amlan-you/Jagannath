@@ -430,12 +430,19 @@ function drawNebula() {
     const y = H * .5 + Math.sin(t * Math.PI * 4) * H * .1 + gauss() * H * .05;
     blob(x, y, 30 + rng() * 150, cols[(rng() * cols.length) | 0], 0.035 + rng() * 0.06);
   }
-  for (let i = 0; i < 9000; i++) {
-    const t = rng(), x = t * W, y = H * .5 + Math.sin(t * Math.PI * 4) * H * .1 + gauss() * H * .07;
-    g.fillStyle = `rgba(255,${230 + rng() * 25|0},${200 + rng() * 55|0},${0.15 + rng() * 0.5})`;
-    g.fillRect(x, y, 1, 1);
+  // The browser dithers faint canvas gradients with a fine diagonal pattern; stretched over the whole sky it showed as a
+  // grid. A blur pass (wrapping round the seam) smooths it out; the star dust then goes on as soft round specks.
+  const c2 = cnv(W, H), g2 = c2.getContext('2d');
+  g2.fillStyle = '#000'; g2.fillRect(0, 0, W, H);
+  g2.filter = 'blur(5px)';
+  for (const ox of [-W, 0, W]) g2.drawImage(c, ox, 0);
+  g2.filter = 'none';
+  for (let i = 0; i < 2600; i++) {
+    const t = rng(), x = t * W, y = H * .5 + Math.sin(t * Math.PI * 4) * H * .1 + gauss() * H * .07, r = 0.7 + rng() * 0.5;
+    g2.fillStyle = `rgba(255,${230 + rng() * 25|0},${200 + rng() * 55|0},${0.08 + rng() * 0.2})`;
+    g2.beginPath(); g2.arc(x, y, r, 0, Math.PI * 2); g2.fill();
   }
-  return c;
+  return c2;
 }
 
 function drawGlow(inner, outer) {
@@ -1797,7 +1804,8 @@ skyRoot.add(sparkles);
 
 // Room sky: nebula band + spiral galaxy, stencil-gated
 const nebula = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 24), gate(new THREE.MeshBasicMaterial({
-  map: toTex(drawNebula()), side: THREE.BackSide, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false
+  map: toTex(drawNebula()), side: THREE.BackSide, transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  dithering: true                                  // breaks up the 8-bit steps in the faint glow
 })));
 nebula.rotation.set(0.9, 0.4, 0.35);
 nebula.renderOrder = -9;
@@ -2333,7 +2341,9 @@ function frame(time) {
   }
 
   const h = headPos();
-  setInside(h.z < DOOR_FACE - 0.02);
+  // switch to the inside view a little before the eye reaches the doorway: closer than the camera's near plane the
+  // doorway's stencil quad is clipped away and, for a frame, nothing of the room would be drawn
+  setInside(h.z < DOOR_FACE - 0.02 || (doorState !== 'closed' && h.z < DOOR_FACE + 0.14 && Math.abs(h.x) < DOOR_W / 2 + 0.25));
   updateFlames(t, h);
   updateIncense(t, h);
   skyRoot.position.copy(h);
